@@ -31,7 +31,6 @@ void ofApp::allocateTexture() {
 void ofApp::setupAudio() {
 
 	mySound.load("bi-naural_beats_L380R370_48kHz.wav",false);
-	//mySound.setLoop(true);
 	mySound.setVolume(0);
 
 }
@@ -42,7 +41,6 @@ void ofApp::setup() {
 
 	ofSetLogLevel(OF_LOG_VERBOSE);
 	ofLogToConsole();
-	//ofLogToFile("myLogFile.txt", true);
 
 	ofSetVerticalSync(false);
 	vr.setup();
@@ -75,7 +73,14 @@ void ofApp::update(){
 	ofSoundUpdate();
 	vr.update();
 	vive.update();
-	updateSequence();
+
+	if (mode == PLAY_MODE::SEQUENSE) {
+		updateSequence();	
+	}
+	else {
+		updateDemo();
+	}
+
 	DeepDream.update(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
 
 	for (int i = 0; i < 2; i++) {
@@ -109,46 +114,30 @@ void ofApp::update(){
 
 
 void ofApp::drawVRView() {
-	//ofPushMatrix();
-	//ofTranslate(0, eyeWidth_eighth);
-	//ofScale(1, -1); // Flipping
-	//DeepDream.mergeFbo.getTexture().draw(eyeWidth_eighth, 0, eyeWidth_eighth, eyeWidth_eighth);
-	//DeepDream.getTexture().draw(0, 0, eyeWidth_eighth, eyeWidth_eighth);
-	//eyeFbo[vr::Eye_Left].draw(0, 0, eyeWidth_eighth, eyeWidth_eighth);
-	// 
-	//eyeFbo[vr::Eye_Left].draw(0, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
-	//eyeFbo[vr::Eye_Right].draw(eyeWidth_eighth, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
+	 
+	eyeFbo[vr::Eye_Left].draw(0, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
+	eyeFbo[vr::Eye_Right].draw(eyeWidth_eighth, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
 
+	//for capture HMD
+	//int w = 960;
+	//int h = 1080;
+	//eyeFbo[vr::Eye_Left].draw(0, h, w, -h);
+	//eyeFbo[vr::Eye_Right].draw(w, h, w, -h);
 
-	int w = 960;
-	int h = 1080;
-
-	//1150 x 750
+	//1150 x 750 source draw
 	//ofDisableAlphaBlending();
 	//vive.getUndistortedTexture(0).draw(0, 0, w, h);
 	//vive.getUndistortedTexture(1).draw(w, 0, w, h);
 	//ofEnableAlphaBlending();
-
-	eyeFbo[vr::Eye_Left].draw(0, h, w, -h);
-	eyeFbo[vr::Eye_Right].draw(w, h, w, -h);
-	
-	//eyeWidth_eighth
-	//ofPopMatrix();
-	//DeepDream.getTexture().draw(0, 0);
-
 }
-
 void ofApp::draw(){
 	
 	if (isDrawVrView) {
 		drawVRView();
 	}
-	//panel.draw();
-	//drawSequenceBar();
-	
+	panel.draw();
+	drawSequenceInfo();
 }
-
-
 void ofApp::drawWorld() {
 
 	cam.begin();
@@ -167,9 +156,6 @@ void ofApp::drawWorld() {
 }
 void ofApp::getTimeStamp() {
 
-	//timeStamp = std::to_string(ofGetYear())+"/"+ ofToString(ofGetMonth(), 2, '0')+"/" +ofToString(ofGetDay(), 2, '0')+" "
-	//	+ ofToString(ofGetHours(), 2, '0')+ ":" + ofToString(ofGetMinutes(), 2, '0')+ ":" + ofToString(ofGetSeconds(),2,'0');
-
 	std::string tmpTimestampFormat = "%F %T";
 
 	timeStamp = ofGetTimestampString(tmpTimestampFormat);
@@ -186,7 +172,6 @@ void ofApp::getTimeStamp() {
 	if (strftime(buf, bufsize, tmpTimestampFormat.c_str(), &tm) != 0) {
 		str << buf;
 	}
-	//auto ret = str.str();
 	endTimeStamp = str.str();
 
 }
@@ -202,115 +187,191 @@ void ofApp::reset() {
 	timer = 0;
 }
 
+void ofApp::start() {
+
+	state = STATUS::START;
+	stateStr = "START";
+	bTimerReached = false;
+	DeepDream.resumeDeepDreamThread();
+	DeepDream.setblack(black);
+	startTime = ofGetElapsedTimeMillis();  // get the start time
+	getTimeStamp();
+	mySound.setVolume(0);
+	mySound.play();
+
+}
+
 void ofApp::interruptReset() {
 
 	bTimerReached = true;
 	reset();
 	DeepDream.pauseDeepDreamThread();
-	ofLogNotice(__FUNCTION__) << "Interrupt Reset";
+	ofLogNotice(__FUNCTION__) << "STATUS::READY";
 
 }
 
-void ofApp::keyPressed(int key) {
+void ofApp::interruptEnding() {
+	if (state == STATUS::RUN) {
 
-	if (key == ' ') {
-		if (state == STATUS::READY) {
-			state = STATUS::START;
-			bTimerReached = false;
-			DeepDream.resumeDeepDreamThread();
-			DeepDream.setblack(black);
-			startTime = ofGetElapsedTimeMillis();  // get the start time
-			getTimeStamp();
-			mySound.setVolume(0);
-
-			ofLogNotice(__FUNCTION__) << boolalpha << mySound.isLoaded();
-
-			mySound.play();
-
-			stateStr = "START";
-			ofLogNotice(__FUNCTION__) << "spacebar : STATUS::START";
+		if (mode == PLAY_MODE::SEQUENSE) {
+			startTime = int(ofGetElapsedTimeMillis()) - int(STATUS::RUN);
 		}
 		else {
-			ofLogWarning(__FUNCTION__) <<"spacebar : state is not READY. press R to reset.";
+			startTime = ofGetElapsedTimeMillis();
+		}
+
+		state = STATUS::FADE_OUT;
+		stateStr = "FADE_OUT";
+		ofLogNotice(__FUNCTION__) << "STATUS::FADE_OUT";
+	}
+	else {
+	
+		ofLogWarning(__FUNCTION__) << "interruptEnding only use STATUS::RUN.";
+
+	}
+}
+
+void ofApp::audioCheck() {
+
+	if (state == STATUS::READY) {
+
+		if (mySound.isPlaying()) {
+			mySound.stop();
+			mySound.setVolume(0);
+			ofLogNotice(__FUNCTION__) << "audio stop";
+		}
+		else {
+			mySound.setVolume(1);
+			mySound.play();
+			ofLogNotice(__FUNCTION__) << "audio start";
 		}
 	}
+	else {
+		ofLogWarning(__FUNCTION__) << "state is not READY.";
+	}
+}
 
-	if (key == 'd') {
-		bool b = !isDrawVrView;
-		isDrawVrView.set(b);
-		ofLogNotice(__FUNCTION__) << "d : change DrawVrView";
+void ofApp::changeDrawVRView() {
+	bool b = !isDrawVrView;
+	isDrawVrView.set(b);
+}
 
+void ofApp::switchPlayMode() {
+
+
+	if (state == STATUS::READY) {
+		if (mode == PLAY_MODE::DEMO) {
+
+			mode = PLAY_MODE::SEQUENSE;
+			modeStr = "PLAY_MODE::SEQUENSE";
+			ofLogNotice(__FUNCTION__) << "PLAY_MODE::SEQUENSE";
+		}
+		else {
+			mode = PLAY_MODE::DEMO;
+			modeStr = "PLAY_MODE::DEMO";
+			ofLogNotice(__FUNCTION__) << "PLAY_MODE::DEMO";
+		}
+	}
+	else {
+		ofLogWarning(__FUNCTION__) << "Can't switch play mode because the sequence state is not ready. Please set the sequence state to ready.";
+	}
+
+}
+
+void ofApp::switchDemoModeStatus() {
+
+	if (mode == PLAY_MODE::DEMO) {
+		if (state == STATUS::READY) {
+			start();
+			ofLogNotice(__FUNCTION__) << "change to STATUS::START";
+		}
+		else if (state == STATUS::RUN) {
+			interruptEnding();
+		}
+		else {
+			ofLogWarning(__FUNCTION__) << "please try again.";
+		}
+	}
+	else {
+		ofLogWarning(__FUNCTION__) << "status is not Demo.";
+	}
+}
+
+void ofApp::switchDeepDreamThreadProcess() {
+	if (DeepDream.getDeepDreamThread().isThreadRunning()) {
+		DeepDream.pauseDeepDreamThread();
+		ofLogNotice(__FUNCTION__) << "pause deepdream thread.";
+	}
+	else {
+		DeepDream.resumeDeepDreamThread();
+		ofLogNotice(__FUNCTION__) << "resume deepdream thread.";
+	}
+};
+
+void ofApp::keyPressed(int key) {
+
+	if (31 < key && key < 127) {
+		std::string s = std::string(1, key);
+		ofLogNotice(__FUNCTION__) << s + " key pressed";
 	}
 
 	if (key == 'a') {
-		if (state == STATUS::READY) {
+		audioCheck();
+	}
+	if (key == 'd') {
+		changeDrawVRView();
+		ofLogNotice(__FUNCTION__) << "change Draw VR View";
+	}
+	if (key == 'p') {
+		switchDemoModeStatus();
+	}
 
-			if (mySound.isPlaying()) {
-				mySound.stop();
-				mySound.setVolume(0);
-				ofLogNotice(__FUNCTION__) << "a : check audio stop";
-			}
-			else {
-				mySound.setVolume(1);
-				mySound.play();
-				ofLogNotice(__FUNCTION__) << "a : check audio start";
-			}
+	if (key == ' ') {
+		if (state == STATUS::READY) {
+			start();
+			ofLogNotice(__FUNCTION__) << "spacebar : STATUS::START";
 		}
 		else {
-			ofLogWarning(__FUNCTION__) << "a : state is not READY.";
+			ofLogWarning(__FUNCTION__) << "spacebar : state is not READY. press R to reset.";
 		}
-
-		bool b = !isDrawVrView;
-		isDrawVrView.set(b);
 	}
 
 	if (key == 'r') {
 		if (state == STATUS::END) {
-
 			reset();
 			ofLogNotice(__FUNCTION__) << "STATUS::READY";
 
 		}else {
-			ofLogWarning(__FUNCTION__) << "R : state is not END. press Ctrl+R to interrupt.";
+			ofLogWarning(__FUNCTION__) << "state is not END. press Ctrl+R to interrupt.";
 		}
+	}
+
+	if (key == 'm') {
+		switchPlayMode();
 	}
 
 	//Ctrl + r
 	if (key == 18) {
+		ofLogNotice(__FUNCTION__) << "Ctrl+R key pressed";
 		interruptReset();
-		ofLogNotice(__FUNCTION__) << "STATUS::READY";
-		ofLogNotice(__FUNCTION__) << "Ctrl+R : interrupt reset.";
-	}
-
-	//Ctrl + C
-	if (key == 3) {
-		ofLogWarning(__FUNCTION__) << "Ctrl+C : exit.";
-		exit();
-	}
-
-	//Ctrl + P
-	if (key == 16) {
-		if (DeepDream.getDeepDreamThread().isThreadRunning()) {
-			DeepDream.pauseDeepDreamThread();
-		}
-		else {
-			DeepDream.resumeDeepDreamThread();
-		}
-		ofLogNotice(__FUNCTION__) << "Ctrl+P : pause/resume deepdream thread.";
 	}
 
 	//Ctrl + E
 	if (key == 5) {
-	
-		if (state == STATUS::RUN) {
+		ofLogNotice(__FUNCTION__) << "Ctrl+E key pressed";
+		interruptEnding();
+	}
 
-			startTime = ofGetElapsedTimeMillis() - int(STATUS::RUN);
-			state = STATUS::FADE_OUT;
-			stateStr = "FADE_OUT";
-			ofLogNotice(__FUNCTION__) << "STATUS::FADE_OUT" << int(STATUS::RUN);
-			ofLogNotice(__FUNCTION__) << "Ctrl+E : interrupt ending.";
-		}
+	//Ctrl + P
+	if (key == 16) {
+		ofLogNotice(__FUNCTION__) << "Ctrl+P key pressed";
+		switchDeepDreamThreadProcess();
+	}
 
+	//Ctrl + Q
+	if (key == 17) {
+		ofLogWarning(__FUNCTION__) << "Ctrl+Q : exit.";
+		exit();
 	}
 
 }
@@ -356,6 +417,7 @@ void ofApp::updateSequence() {
 	if (state != STATUS::READY && state != STATUS::END) {
 
 		timer = ofGetElapsedTimeMillis() - startTime;
+
 		velocityScalar = glm::length(vr.getHmd().getVelocityVector());
 		angularVelocityScalar = glm::length(vr.getHmd().getAngularVelocityVector()) * 0.1;
 		float attenuation = (velocityScalar + angularVelocityScalar) / 2.0;
@@ -411,50 +473,133 @@ void ofApp::updateSequence() {
 
 	}
 
+
+	
 }
 
-void ofApp::drawSequenceBar() {
+void ofApp::updateDemo() {
 
-	int bar_x = 20;
-	int bar_y = 300;
+	prog = 0.0;
+	if (state != STATUS::READY && state != STATUS::END) {
 
-	// the background to the progress bar
-	ofSetColor(100);
-	ofDrawRectangle(bar_x, bar_y, barWidth, 20);
+		timer = ofGetElapsedTimeMillis() - startTime;
 
-	// get the percentage of the timer
-	float pct = ofMap(timer, 0.0, float(STATUS::END), 0.0, 1.0, true);
-	ofSetHexColor(0xf02589);
-	ofDrawRectangle(bar_x, bar_y, barWidth * pct, 20);
+		velocityScalar = glm::length(vr.getHmd().getVelocityVector());
+		angularVelocityScalar = glm::length(vr.getHmd().getAngularVelocityVector()) * 0.1;
+		float attenuation = (velocityScalar + angularVelocityScalar) / 2.0;
 
-	// draw the percentage
-	ofSetColor(20);
-	auto percentage = std::to_string(int(pct * 100));
-	ofSetColor(255);
-	ofDrawBitmapString(percentage + "%", bar_x + barWidth + 10, bar_y + 20);
+		switch (state) {
+
+		case STATUS::START:
+			DeepDream.getParameters().getFloat("blend_weight").set(0.1);
+			state = STATUS::FADE_IN;
+			stateStr = "FADE_IN";
+			ofLogNotice(__FUNCTION__) << "STATUS::FADE_IN";
+			break;
+
+		case STATUS::FADE_IN:
+			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
+			DeepDream.setblend(prog);
+			DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+			mySound.setVolume(ofMap(prog, 0.01, 1.0, 0.0, 1.0, true));
+			if (prog >= 1.0) {
+				state = STATUS::RUN;
+				stateStr = "RUN";
+				ofLogNotice(__FUNCTION__) << "STATUS::RUN";
+			}
+			break;
+
+		case STATUS::RUN:
+			prog = ofMap(timer, (float)STATUS::FADE_IN, (float)STATUS::RUN, 0.0, 1.0, false);
+			updatePrameter(timer);
+			DeepDream.getParameters().getFloat("blend_weight") += attenuation;
+			DeepDream.setblend(1.0 - attenuation);
+			break;
+
+		case STATUS::FADE_OUT:
+			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
+			DeepDream.setblend(1.0 - prog);
+			DeepDream.setblack(ofMap(prog, 0.0, 1.0, 0.0, black, false));
+			mySound.setVolume((1.0 - prog));
+			if (prog >= 1.0) {
+				state = STATUS::END;
+				stateStr = "END";
+				bTimerReached = true;
+				DeepDream.pauseDeepDreamThread();
+				ofLogNotice(__FUNCTION__) << "STATUS::END";
+				reset();
+			}
+			break;
+		}
+
+	}
+}
+
+void ofApp::drawSequenceInfo() {
 
 	// some information about the timer
 	string  info = "FPS:        " + std::to_string(ofGetFrameRate()) + "\n";
-	info += "Start Time: " + timeStamp + "\n";
-	info += "End Time:   " + endTimeStamp + "\n";
+	info += "Play Mode:  " + modeStr + "\n";
+	info += "Status:     " + stateStr + " " + std::to_string(int(prog * 100)) + "%\n";
 
-	info += "Sequence:   " + sequenceTimeStr + "\n";
-	int sec = int(timer / 1000);
-	info += "Timer:      " + std::to_string(int(floor(sec / 60))) + " minutes " + std::to_string(sec % 60) + " seconds" + "\n";
-	info += "Status:     " + stateStr + " "+ std::to_string(int(prog*100))+ "%\n";
+	if (mode == PLAY_MODE::SEQUENSE) {
+
+		int bar_x = 20;
+		int bar_y = 300;
+
+		// the background to the progress bar
+		ofSetColor(100);
+		ofDrawRectangle(bar_x, bar_y, barWidth, 20);
+
+		// get the percentage of the timer
+		float pct = ofMap(timer, 0.0, float(STATUS::END), 0.0, 1.0, true);
+		ofSetHexColor(0xf02589);
+		ofDrawRectangle(bar_x, bar_y, barWidth * pct, 20);
+
+		// draw the percentage
+		ofSetColor(20);
+		auto percentage = std::to_string(int(pct * 100));
+		ofSetColor(255);
+		ofDrawBitmapString(percentage + "%", bar_x + barWidth + 10, bar_y + 20);
+
+		info += "\n";
+		info += "Start Time: " + timeStamp + "\n";
+		info += "End Time:   " + endTimeStamp + "\n";
+		info += "Sequence:   " + sequenceTimeStr + "\n";
+		int sec = int(timer / 1000);
+		info += "Timer:      " + std::to_string(int(floor(sec / 60))) + " minutes " + std::to_string(sec % 60) + " seconds" + "\n";
+		info += "Percentage: " + percentage + "%\n";
+	}
+	else {
+	
+		info += "\n";
+		int sec = int(timer / 1000);
+		info += "Timer:      " + std::to_string(int(floor(sec / 60))) + " minutes " + std::to_string(sec % 60) + " seconds" + "\n";
+	
+	}
+
+	info += "\n";
 	info += "Velocity:   " + std::to_string(velocityScalar) + "\n";
 	info += "Angular:    " + std::to_string(angularVelocityScalar) + "\n";
 	info += "Volume:   " + std::to_string(mySound.getVolume()) + "\n";
 
-	info += "Percentage: " + percentage + "%\n";
-	info += "\nPress ' ' to start.";
-	info += "\nPress 'r' to ready.";
+
+	if (mode == PLAY_MODE::SEQUENSE) {
+		info += "\nPress ' ' to start.";
+		info += "\nPress 'r' to ready.";
+	}
+	else {
+		info += "\nPress 'p' to start/stop demo.";
+	
+	}
+
 	info += "\nPress 'd' to show/hide VR view.";
 	info += "\nPress 'a' to audio check.";
-	info += "\nPress 'Ctrl+r' to interrupt reset.";
-	info += "\nPress 'Ctrl+p' to pause/resume DeepDream thread.";
-	info += "\nPress 'Ctrl+c' to exit.";
-	info += "\nPress 'Ctrl+e' to interrupt ending.";
+	info += "\nPress 'm' to switch play mode.";
+	info += "\nPress 'Ctrl + R' to interrupt reset.";
+	info += "\nPress 'Ctrl + E' to interrupt ending.";
+	info += "\nPress 'Ctrl + P' to pause/resume DeepDream thread.";
+	info += "\nPress 'Ctrl + Q' to exit.";
 
 	ofSetColor(255);
 	ofDrawBitmapString(info, 20, 20);

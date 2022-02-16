@@ -21,8 +21,12 @@ public:
 	//milli sec
 	static const int sequenseDulation = 900000;
 	//static const int fadeinDulation = 240000;
-	static const int fadeinDulation = 30000;
+	static const int fadeinDulation = 5000;
 	static const int fadeoutDulation = 60000;
+
+	static const int demoFadeDulation = 5000;
+
+	bool isDebug = true;
 
 	enum class STATUS {
 		READY = -1,
@@ -33,10 +37,17 @@ public:
 		END = FADE_OUT + 1,
 	};
 
+	enum class PLAY_MODE {
+		DEMO = 0,
+		SEQUENSE = 1,
+	};
+
 
 private:
 
 	STATUS state = STATUS::READY;
+	PLAY_MODE mode = PLAY_MODE::SEQUENSE;
+
 
 	void allocateTexture();
 	void setupAudio();
@@ -48,19 +59,31 @@ private:
 	void drawVRView();
 	void drawWorld();
 
-	void drawSequenceBar();
+	void drawSequenceInfo();
 	void updateSequence();
+	void updateDemo();
 	void updatePrameter(float prog);
 	void getTimeStamp();
+	void start();
 	void reset();
+
+	//key function
+	void audioCheck();
+	void changeDrawVRView();
+	void switchPlayMode();
+	void switchDeepDreamThreadProcess();
 	void interruptReset();
+	void interruptEnding();
+
+	//demo mode
+	void switchDemoModeStatus();
+
 	std::string timeStamp = "";
 	std::string endTimeStamp = "";
 	std::string stateStr = "STATUS::READY";
+	std::string modeStr = "PLAY_MODE::SEQUENSE";
 	std::string sequenceTimeStr = "";
 	std::string elapsedTimeStr = "";
-
-	//std::string endTimeStr = "";
 
 	bool  bTimerReached = true; // used as a trigger when we hit the timer
 	float barWidth = 360;
