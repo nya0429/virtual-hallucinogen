@@ -6,8 +6,13 @@ void ofApp::allocateTexture() {
 	eyeWidth = vr.getHmd().getEyeWidth();
 	eyeHeight = vr.getHmd().getEyeHeight();
 
+	//eyeWidth_eighth = vr.getHmd().getEyeWidth() / 8.f;
 	eyeWidth_eighth = vr.getHmd().getEyeWidth() / 8.f;
+	eyeWidth_eighth = 480;
+
 	eyeHeight_eighth = vr.getHmd().getEyeHeight() / 8.f;
+	eyeHeight_eighth = 480;
+
 
 	// Let's prepare fbos to be renderred for each eye
 	ofFboSettings s;
@@ -26,6 +31,8 @@ void ofApp::allocateTexture() {
 	for (auto& f : eyeFbo) {
 		f.allocate(s);
 	}
+
+
 }
 
 void ofApp::setupAudio() {
@@ -37,9 +44,9 @@ void ofApp::setupAudio() {
 
 void ofApp::setup() {
 
-	ofSetWindowTitle("generic hallucinogen");
+	ofSetWindowTitle("virtual hallucinogen");
 
-	ofSetLogLevel(OF_LOG_VERBOSE);
+	ofSetLogLevel(OF_LOG_NOTICE);
 	ofLogToConsole();
 
 	ofSetVerticalSync(false);
@@ -55,16 +62,29 @@ void ofApp::setup() {
 	panel.add(DeepDream.getParameters());
 	panel.add(isDrawVrView.set("isDrawVrView", true));
 	panel.add(isUseTranspose.set("isUseTranspose", false));
+	panel.minimizeAll();
 
 	getTimeStamp();
 	auto sec = (int(STATUS::END) - 1) / 1000;
 	sequenceTimeStr = std::to_string(int(floor(sec/60)))+" minutes "+ std::to_string(sec % 60) + " seconds";
+
+	manual = "Press 'd' to show/hide VR view.";
+	manual += "\nPress 'a' to audio check.";
+	manual += "\nPress 'm' to switch play mode.";
+	manual += "\nPress 'Ctrl + R' to interrupt reset.";
+	manual += "\nPress 'Ctrl + E' to interrupt ending.";
+	manual += "\nPress 'Ctrl + P' to pause/resume DeepDream thread.";
+	manual += "\nPress 'Ctrl + Q' to exit.";
 	
 	vr.update();
 	vive.update();
 	DeepDream.setup(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
 	DeepDream.setLikeViveSRWorks(vive.getUndistortedTexture(0));
-	DeepDream.setblack(black);
+
+	DeepDream.getParameters().getFloat("black").set(black);
+	DeepDream.getParameters().getFloat("blend").set(0);
+	//DeepDream.setblack(black);
+
 
 }
 
@@ -114,9 +134,11 @@ void ofApp::update(){
 
 
 void ofApp::drawVRView() {
-	 
+	
+	ofDisableAlphaBlending();
 	eyeFbo[vr::Eye_Left].draw(0, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
 	eyeFbo[vr::Eye_Right].draw(eyeWidth_eighth, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
+	ofEnableAlphaBlending();
 
 	//for capture HMD
 	//int w = 960;
@@ -125,7 +147,7 @@ void ofApp::drawVRView() {
 	//eyeFbo[vr::Eye_Right].draw(w, h, w, -h);
 
 	//1150 x 750 source draw
-	//ofDisableAlphaBlending();
+	
 	//vive.getUndistortedTexture(0).draw(0, 0, w, h);
 	//vive.getUndistortedTexture(1).draw(w, 0, w, h);
 	//ofEnableAlphaBlending();
@@ -182,8 +204,11 @@ void ofApp::reset() {
 	stateStr = "READY";
 	mySound.stop();
 	mySound.setVolume(0);
-	DeepDream.setblend(0);
-	DeepDream.setblack(black);
+	//DeepDream.setblend(0);
+	//DeepDream.setblack(black);
+	DeepDream.getParameters().getFloat("blend").set(0);
+	DeepDream.getParameters().getFloat("black").set(black);
+
 	timer = 0;
 }
 
@@ -193,7 +218,9 @@ void ofApp::start() {
 	stateStr = "START";
 	bTimerReached = false;
 	DeepDream.resumeDeepDreamThread();
-	DeepDream.setblack(black);
+	//DeepDream.setblack(black);
+	DeepDream.getParameters().getFloat("black").set(black);
+
 	startTime = ofGetElapsedTimeMillis();  // get the start time
 	getTimeStamp();
 	mySound.setVolume(0);
@@ -322,17 +349,20 @@ void ofApp::keyPressed(int key) {
 		changeDrawVRView();
 		ofLogNotice(__FUNCTION__) << "change Draw VR View";
 	}
-	if (key == 'p') {
-		switchDemoModeStatus();
-	}
 
 	if (key == ' ') {
-		if (state == STATUS::READY) {
-			start();
-			ofLogNotice(__FUNCTION__) << "spacebar : STATUS::START";
+
+		if (mode == PLAY_MODE::DEMO) {
+			switchDemoModeStatus();
 		}
 		else {
-			ofLogWarning(__FUNCTION__) << "spacebar : state is not READY. press R to reset.";
+			if (state == STATUS::READY) {
+				start();
+				ofLogNotice(__FUNCTION__) << "spacebar : STATUS::START";
+			}
+			else {
+				ofLogWarning(__FUNCTION__) << "spacebar : state is not READY. press R to reset.";
+			}
 		}
 	}
 
@@ -433,8 +463,12 @@ void ofApp::updateSequence() {
 
 			case STATUS::FADE_IN:
 				prog = ofMap(timer, 0.0, (float)STATUS::FADE_IN, 0.0, 1.0, true);
-				DeepDream.setblend(prog);
-				DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+
+				DeepDream.getParameters().getFloat("blend").set(prog);
+				DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+
+				//DeepDream.setblend(prog);
+				//DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
 				mySound.setVolume(ofMap(prog, 0.01, 1.0, 0.0, 1.0, true));
 				if (prog >= 1.0) {
 					state = STATUS::RUN;
@@ -448,7 +482,9 @@ void ofApp::updateSequence() {
 				updatePrameter(prog);
 
 				DeepDream.getParameters().getFloat("blend_weight") += attenuation;
-				DeepDream.setblend(1.0 - attenuation);
+				DeepDream.getParameters().getFloat("blend").set(1.0 - attenuation);
+				//DeepDream.setblend(1.0 - attenuation);
+
 				if (prog >= 1.0) {
 					DeepDream.getParameters().getFloat("blend_weight").set(0.1);
 					state = STATUS::FADE_OUT;
@@ -458,8 +494,10 @@ void ofApp::updateSequence() {
 				break;
 			case STATUS::FADE_OUT:
 				prog = ofMap(timer, (float)STATUS::RUN, (float)STATUS::FADE_OUT, 0.0, 1.0, true);
-				DeepDream.setblend(1.0 - prog);
-				DeepDream.setblack(prog);
+				//DeepDream.setblend(1.0 - prog);
+				//DeepDream.setblack(prog);
+				DeepDream.getParameters().getFloat("blend").set(1.0 - prog);
+				DeepDream.getParameters().getFloat("blend").set(prog);
 				mySound.setVolume((1.0 - prog));
 				if (prog >= 1.0) {
 					state = STATUS::END;
@@ -499,8 +537,12 @@ void ofApp::updateDemo() {
 
 		case STATUS::FADE_IN:
 			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
-			DeepDream.setblend(prog);
-			DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+			//DeepDream.setblend(prog);
+			//DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+			DeepDream.getParameters().getFloat("blend").set(prog);
+			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+
+
 			mySound.setVolume(ofMap(prog, 0.01, 1.0, 0.0, 1.0, true));
 			if (prog >= 1.0) {
 				state = STATUS::RUN;
@@ -510,16 +552,22 @@ void ofApp::updateDemo() {
 			break;
 
 		case STATUS::RUN:
-			prog = ofMap(timer, (float)STATUS::FADE_IN, (float)STATUS::RUN, 0.0, 1.0, false);
-			updatePrameter(timer);
+			//prog = ofMap(timer, (float)STATUS::FADE_IN, (float)STATUS::RUN, 0.0, 1.0, false);
+			updatePrameter(sin(timer/1000000.0)*0.5 + 0.5);
 			DeepDream.getParameters().getFloat("blend_weight") += attenuation;
-			DeepDream.setblend(1.0 - attenuation);
+			//DeepDream.setblend(1.0 - attenuation);
+			DeepDream.getParameters().getFloat("blend").set(1.0 - attenuation);
+
 			break;
 
 		case STATUS::FADE_OUT:
 			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
-			DeepDream.setblend(1.0 - prog);
-			DeepDream.setblack(ofMap(prog, 0.0, 1.0, 0.0, black, false));
+			//DeepDream.setblend(1.0 - prog);
+			//DeepDream.setblack(ofMap(prog, 0.0, 1.0, 0.0, black, false));
+			DeepDream.getParameters().getFloat("blend").set(1.0 - prog);
+			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, 0.0, black, false));
+
+
 			mySound.setVolume((1.0 - prog));
 			if (prog >= 1.0) {
 				state = STATUS::END;
@@ -542,10 +590,17 @@ void ofApp::drawSequenceInfo() {
 	info += "Play Mode:  " + modeStr + "\n";
 	info += "Status:     " + stateStr + " " + std::to_string(int(prog * 100)) + "%\n";
 
+	info += "\n";
+
+	info += "Velocity:   " + std::to_string(velocityScalar) + "\n";
+	info += "Angular:    " + std::to_string(angularVelocityScalar) + "\n";
+	info += "Volume:   " + std::to_string(mySound.getVolume()) + "\n";
+
+
 	if (mode == PLAY_MODE::SEQUENSE) {
 
 		int bar_x = 20;
-		int bar_y = 300;
+		int bar_y = 240;
 
 		// the background to the progress bar
 		ofSetColor(100);
@@ -578,31 +633,22 @@ void ofApp::drawSequenceInfo() {
 	
 	}
 
-	info += "\n";
-	info += "Velocity:   " + std::to_string(velocityScalar) + "\n";
-	info += "Angular:    " + std::to_string(angularVelocityScalar) + "\n";
-	info += "Volume:   " + std::to_string(mySound.getVolume()) + "\n";
-
-
 	if (mode == PLAY_MODE::SEQUENSE) {
 		info += "\nPress ' ' to start.";
 		info += "\nPress 'r' to ready.";
 	}
 	else {
-		info += "\nPress 'p' to start/stop demo.";
+		info += "\nPress ' ' to start/stop demo.";
 	
 	}
 
-	info += "\nPress 'd' to show/hide VR view.";
-	info += "\nPress 'a' to audio check.";
-	info += "\nPress 'm' to switch play mode.";
-	info += "\nPress 'Ctrl + R' to interrupt reset.";
-	info += "\nPress 'Ctrl + E' to interrupt ending.";
-	info += "\nPress 'Ctrl + P' to pause/resume DeepDream thread.";
-	info += "\nPress 'Ctrl + Q' to exit.";
+
 
 	ofSetColor(255);
+	//ofBackground(128, 128);
 	ofDrawBitmapString(info, 20, 20);
+	ofDrawBitmapString(manual, 360, 20);
+	//ofBackground(0,0);
 
 }
 

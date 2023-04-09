@@ -7,7 +7,6 @@
 #include "ofxDeepDreamThread.h"
 #include "ofxSpout.h"
 
-
 class ofApp : public ofBaseApp{
 
 public:
@@ -20,8 +19,7 @@ public:
 
 	//milli sec
 	static const int sequenseDulation = 900000;
-	//static const int fadeinDulation = 240000;
-	static const int fadeinDulation = 5000;
+	static const int fadeinDulation = 240000;
 	static const int fadeoutDulation = 60000;
 
 	static const int demoFadeDulation = 5000;
@@ -36,6 +34,7 @@ public:
 		FADE_OUT = sequenseDulation,
 		END = FADE_OUT + 1,
 	};
+
 
 	enum class PLAY_MODE {
 		DEMO = 0,
@@ -96,8 +95,11 @@ private:
 	float black = 0.3;
 	float prog = 0.0;
 
+	std::string manual = "";
+
 	ofxDeepDream::ofxDeepDreamThread DeepDream;
 	ofxOpenVrUtil::Interface vr;
+	
 	ofxViveSRWorks::Interface vive;
 	std::array<ofFbo, 2> eyeFbo;
 
