@@ -1,5 +1,4 @@
 ofxDeepDream
 ofxGui
 ofxOpenVrUtil
-ofxSpout
 ofxViveSRWorks

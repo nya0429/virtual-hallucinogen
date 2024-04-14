@@ -5,7 +5,6 @@
 #include "ofxViveSRWorks.h"
 #include "ofxGui.h"
 #include "ofxDeepDreamThread.h"
-#include "ofxSpout.h"
 
 class ofApp : public ofBaseApp{
 

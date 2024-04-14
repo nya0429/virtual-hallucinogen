@@ -3,7 +3,8 @@ addons/
 bin/
 icon.rc
 obj/
-virtual_hallucinogen.sln
-virtual_hallucinogen.vcxproj
-virtual_hallucinogen.vcxproj.filters
-virtual_hallucinogen.vcxproj.user
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+config.make
