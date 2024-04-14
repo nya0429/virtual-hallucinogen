@@ -60,10 +60,13 @@ void ofApp::setup() {
 	panel.setPosition(760,0);
 	//panel.add(vive.getParameters());
 	panel.add(DeepDream.getParameters());
-	panel.add(DeepDream.getDeepDreamGroup());
 
 	panel.add(isDrawVrView.set("isDrawVrView", true));
 	panel.add(isUseTranspose.set("isUseTranspose", false));
+	panel.add(isRandomDemo.set("isRandomDemo", true));
+	panel.add(isDrawStereoCamera.set("isDrawStereo", true));
+
+
 	panel.minimizeAll();
 
 	getTimeStamp();
@@ -80,13 +83,42 @@ void ofApp::setup() {
 	
 	vr.update();
 	vive.update();
-	DeepDream.setup(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
-	DeepDream.setLikeViveSRWorks(vive.getUndistortedTexture(0));
+
+
+	ofLogNotice(__FUNCTION__) << "STEREO CAMERA is " << STEREO_CAMERA;
+
+
+	if (STEREO_CAMERA) {
+		DeepDream.setup(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
+		DeepDream.setLikeViveSRWorks(vive.getUndistortedTexture(0));
+	}
+	else {
+
+		std::string path = "../../../../../addons/ofxViveSRWorks/shader/";
+		bool isLoaded = texShader.load(path + "texShader");
+		ofLogNotice(__FUNCTION__) << "texShader is loaded  " <<isLoaded;
+
+		DeepDream.setup(vive.getUndistortedTexture(0));
+
+
+		glm::ivec2 distortedSize, undistortedSize;
+		undistortedSize.x = vive.getUndistortedTexture(0).getWidth();
+		undistortedSize.y = vive.getUndistortedTexture(0).getHeight();
+
+		float aspect = float(undistortedSize.x) / float(undistortedSize.y);
+
+		renderRect = ofMesh::plane(8.0, 8.0 / aspect, 2, 2);
+		renderRect.clearTexCoords();
+		renderRect.addTexCoord(glm::vec2(0, undistortedSize.y));
+		renderRect.addTexCoord(glm::vec2(undistortedSize));
+		renderRect.addTexCoord(glm::vec2(0));
+		renderRect.addTexCoord(glm::vec2(undistortedSize.x, 0));
+	
+	}
 
 	DeepDream.getParameters().getFloat("black").set(BLACK);
 	DeepDream.getParameters().getFloat("blend").set(0);
 	//DeepDream.setblack(black);
-
 
 }
 
@@ -103,33 +135,110 @@ void ofApp::update(){
 		updateDemo();
 	}
 
-	DeepDream.update(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
 
-	for (int i = 0; i < 2; i++) {
-		
-		eyeFbo[i].begin();
-		ofClear(0);
+	if (STEREO_CAMERA) {
+		DeepDream.update(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
 
-		if (isUseTranspose) {
-			vr.beginEye(vr::Hmd_Eye(i));
-			DeepDream.drawLikeViveSRWorks(i, vive.getTransform(i));
+		for (int i = 0; i < 2; i++) {
+
+			eyeFbo[i].begin();
+			ofClear(0);
+
+			if (isUseTranspose) {
+				vr.beginEye(vr::Hmd_Eye(i));
+				if (isDrawStereoCamera) {
+					DeepDream.drawLikeViveSRWorks(i, vive.getTransform(i));
+				}
+				else {
+					DeepDream.drawLikeViveSRWorks(0, vive.getTransform(0));
+				}
+			}
+			else {
+				ofPushMatrix();
+				ofPushView();
+				ofEnableDepthTest();
+				ofSetMatrixMode(OF_MATRIX_PROJECTION);
+				ofLoadMatrix(vr.getHmd().getProjectionMatrix(vr::Hmd_Eye(i)));
+				ofSetMatrixMode(OF_MATRIX_MODELVIEW);
+				ofLoadMatrix(vr.getHmd().getEyeTransformMatrix(vr::Hmd_Eye(i)));
+				if (isDrawStereoCamera) {
+					DeepDream.drawLikeViveSRWorks(i);
+				}
+				else {
+					DeepDream.drawLikeViveSRWorks(0);
+				}
+			}
+
+			vr.endEye();
+			eyeFbo[i].end();
+
+			//Submit texture to VR!
+			vr.submit(eyeFbo[i].getTexture(), vr::EVREye(i));
 		}
-		else {
-			ofPushMatrix();
-			ofPushView();
-			ofEnableDepthTest();
-			ofSetMatrixMode(OF_MATRIX_PROJECTION);
-			ofLoadMatrix(vr.getHmd().getProjectionMatrix(vr::Hmd_Eye(i)));
-			ofSetMatrixMode(OF_MATRIX_MODELVIEW);
-			ofLoadMatrix(vr.getHmd().getEyeTransformMatrix(vr::Hmd_Eye(i)));
-			DeepDream.drawLikeViveSRWorks(i);
+	}
+	else {
+
+
+		DeepDream.update(vive.getUndistortedTexture(0));
+		for (int i = 0; i < 2; i++) {
+
+			eyeFbo[i].begin();
+			ofClear(0);
+
+			if (isUseTranspose) {
+				vr.beginEye(vr::Hmd_Eye(i));
+				{
+					ofDisableDepthTest();
+					ofPushMatrix();
+					ofMultMatrix(glm::scale(glm::vec3(1.f, 1.f, -1.f)) * vive.getTransform(i));
+					ofTranslate(0, 0, 2.f); // Translate image plane to far away
+
+					texShader.begin();
+					texShader.setUniformTexture("tex", DeepDream.getTexture(), 0);
+					renderRect.draw();
+					texShader.end();
+
+					ofPopMatrix();
+					ofEnableDepthTest();
+				}
+				vr.endEye();
+			}
+			else {
+			
+				ofPushMatrix();
+				ofPushView();
+				ofEnableDepthTest();
+				ofSetMatrixMode(OF_MATRIX_PROJECTION);
+				ofLoadMatrix(vr.getHmd().getProjectionMatrix(vr::Hmd_Eye(i)));
+				ofSetMatrixMode(OF_MATRIX_MODELVIEW);
+				ofLoadMatrix(vr.getHmd().getEyeTransformMatrix(vr::Hmd_Eye(i)));
+
+				ofDisableDepthTest();
+				ofPushMatrix();
+				ofMultMatrix(glm::scale(glm::vec3(1.f, 1.f, -1.f)));
+				ofTranslate(0, 0, 2.f); // Translate image plane to far away
+
+				texShader.begin();
+				texShader.setUniformTexture("tex", DeepDream.getTexture(), 0);
+				renderRect.draw();
+				texShader.end();
+
+				ofPopMatrix();
+				ofEnableDepthTest();
+
+
+				vr.endEye();
+
+			
+			}
+
+
+			eyeFbo[i].end();
+
+			vr.submit(eyeFbo[i].getTexture(), vr::EVREye(i));
 		}
 	
-		vr.endEye();
-		eyeFbo[i].end();
-
-		 //Submit texture to VR!
-		vr.submit(eyeFbo[i].getTexture(), vr::EVREye(i));
+	
 	}
 
 }
@@ -141,6 +250,7 @@ void ofApp::drawVRView() {
 	eyeFbo[vr::Eye_Left].draw(0, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
 	eyeFbo[vr::Eye_Right].draw(eyeWidth_eighth, eyeWidth_eighth, eyeWidth_eighth, -eyeWidth_eighth);
 	ofEnableAlphaBlending();
+
 
 	//for capture HMD
 	//int w = 960;
@@ -159,8 +269,8 @@ void ofApp::draw(){
 	if (isDrawVrView) {
 		drawVRView();
 	}
-	panel.draw();
 	drawSequenceInfo();
+	panel.draw();
 }
 void ofApp::drawWorld() {
 
@@ -525,6 +635,10 @@ void ofApp::updateDemo() {
 			break;
 
 		case STATUS::FADE_IN:
+
+			if (isRandomDemo) {
+				updatePrameter(sin(timer / 1000000.0) * 0.5 + 0.5);
+			}
 			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
 			DeepDream.getParameters().getFloat("blend").set(prog - attenuation * prog);
 			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, BLACK, 0.0, false));
@@ -539,15 +653,23 @@ void ofApp::updateDemo() {
 			break;
 
 		case STATUS::RUN:
-			updatePrameter(sin(timer/1000000.0)*0.5 + 0.5);
+
+			if (isRandomDemo) {
+				updatePrameter(sin(timer / 1000000.0) * 0.5 + 0.5);
+			}
 			DeepDream.getParameters().getFloat("blend_weight") += attenuation;
 			DeepDream.getParameters().getFloat("blend").set(1.0 - attenuation);
 
 			break;
 
 		case STATUS::FADE_OUT:
+
+			if (isRandomDemo) {
+				updatePrameter(sin(timer / 1000000.0) * 0.5 + 0.5);
+			}
+
 			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
-			DeepDream.getParameters().getFloat("blend").set(1.0 - prog - attenuation);
+			DeepDream.getParameters().getFloat("blend").set(1.0 - prog - attenuation * (1.0 - prog));
 			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, 0.0, BLACK, false));
 
 
@@ -580,7 +702,7 @@ void ofApp::drawSequenceInfo() {
 	info += "Volume:   " + std::to_string(mySound.getVolume()) + "\n";
 
 	ofSetColor(0,0,0,128);
-	ofDrawRectangle(0, 0, 640, 360);
+	ofDrawRectangle(0, 0, 960, 300);
 
 
 	if (mode == PLAY_MODE::SEQUENSE) {

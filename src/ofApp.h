@@ -94,6 +94,11 @@ private:
 	const float BLACK = 0.3;
 	float prog = 0.0;
 
+	const bool STEREO_CAMERA = true;
+	ofVboMesh renderRect;
+	ofShader texShader;
+	ofFbo tmpFbo;
+
 	std::string manual = "";
 
 	ofxDeepDream::ofxDeepDreamThread DeepDream;
@@ -108,6 +113,9 @@ private:
 
 	ofParameter<bool> isDrawVrView;
 	ofParameter<bool> isUseTranspose;
+	ofParameter<bool> isRandomDemo;
+	ofParameter<bool> isDrawStereoCamera;
+
 	ofParameter<int> SequenceMinutes;
 
 };
