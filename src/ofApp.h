@@ -91,7 +91,7 @@ private:
 	float angularVelocityScalar = 0.0;
 
 	float velocityBlend = 1.0;
-	float black = 0.3;
+	const float BLACK = 0.3;
 	float prog = 0.0;
 
 	std::string manual = "";

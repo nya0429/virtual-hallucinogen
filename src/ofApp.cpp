@@ -60,6 +60,8 @@ void ofApp::setup() {
 	panel.setPosition(760,0);
 	//panel.add(vive.getParameters());
 	panel.add(DeepDream.getParameters());
+	panel.add(DeepDream.getDeepDreamGroup());
+
 	panel.add(isDrawVrView.set("isDrawVrView", true));
 	panel.add(isUseTranspose.set("isUseTranspose", false));
 	panel.minimizeAll();
@@ -81,7 +83,7 @@ void ofApp::setup() {
 	DeepDream.setup(vive.getUndistortedTexture(0), vive.getUndistortedTexture(1));
 	DeepDream.setLikeViveSRWorks(vive.getUndistortedTexture(0));
 
-	DeepDream.getParameters().getFloat("black").set(black);
+	DeepDream.getParameters().getFloat("black").set(BLACK);
 	DeepDream.getParameters().getFloat("blend").set(0);
 	//DeepDream.setblack(black);
 
@@ -204,10 +206,8 @@ void ofApp::reset() {
 	stateStr = "READY";
 	mySound.stop();
 	mySound.setVolume(0);
-	//DeepDream.setblend(0);
-	//DeepDream.setblack(black);
 	DeepDream.getParameters().getFloat("blend").set(0);
-	DeepDream.getParameters().getFloat("black").set(black);
+	DeepDream.getParameters().getFloat("black").set(BLACK);
 
 	timer = 0;
 }
@@ -218,8 +218,7 @@ void ofApp::start() {
 	stateStr = "START";
 	bTimerReached = false;
 	DeepDream.resumeDeepDreamThread();
-	//DeepDream.setblack(black);
-	DeepDream.getParameters().getFloat("black").set(black);
+	DeepDream.getParameters().getFloat("black").set(BLACK);
 
 	startTime = ofGetElapsedTimeMillis();  // get the start time
 	getTimeStamp();
@@ -463,12 +462,8 @@ void ofApp::updateSequence() {
 
 			case STATUS::FADE_IN:
 				prog = ofMap(timer, 0.0, (float)STATUS::FADE_IN, 0.0, 1.0, true);
-
-				DeepDream.getParameters().getFloat("blend").set(prog);
-				DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, black, 0.0, false));
-
-				//DeepDream.setblend(prog);
-				//DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+				DeepDream.getParameters().getFloat("blend").set(prog - attenuation * prog);
+				DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, BLACK, 0.0, false));
 				mySound.setVolume(ofMap(prog, 0.01, 1.0, 0.0, 1.0, true));
 				if (prog >= 1.0) {
 					state = STATUS::RUN;
@@ -480,10 +475,7 @@ void ofApp::updateSequence() {
 			case STATUS::RUN:
 				prog = ofMap(timer, (float)STATUS::FADE_IN, (float)STATUS::RUN, 0.0, 1.0, true);
 				updatePrameter(prog);
-
-				DeepDream.getParameters().getFloat("blend_weight") += attenuation;
 				DeepDream.getParameters().getFloat("blend").set(1.0 - attenuation);
-				//DeepDream.setblend(1.0 - attenuation);
 
 				if (prog >= 1.0) {
 					DeepDream.getParameters().getFloat("blend_weight").set(0.1);
@@ -494,10 +486,7 @@ void ofApp::updateSequence() {
 				break;
 			case STATUS::FADE_OUT:
 				prog = ofMap(timer, (float)STATUS::RUN, (float)STATUS::FADE_OUT, 0.0, 1.0, true);
-				//DeepDream.setblend(1.0 - prog);
-				//DeepDream.setblack(prog);
-				DeepDream.getParameters().getFloat("blend").set(1.0 - prog);
-				DeepDream.getParameters().getFloat("blend").set(prog);
+				DeepDream.getParameters().getFloat("blend").set(1.0 - prog - attenuation*(1.0-prog));
 				mySound.setVolume((1.0 - prog));
 				if (prog >= 1.0) {
 					state = STATUS::END;
@@ -537,10 +526,8 @@ void ofApp::updateDemo() {
 
 		case STATUS::FADE_IN:
 			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
-			//DeepDream.setblend(prog);
-			//DeepDream.setblack(ofMap(prog, 0.0, 1.0, black, 0.0, false));
-			DeepDream.getParameters().getFloat("blend").set(prog);
-			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, black, 0.0, false));
+			DeepDream.getParameters().getFloat("blend").set(prog - attenuation * prog);
+			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, BLACK, 0.0, false));
 
 
 			mySound.setVolume(ofMap(prog, 0.01, 1.0, 0.0, 1.0, true));
@@ -552,20 +539,16 @@ void ofApp::updateDemo() {
 			break;
 
 		case STATUS::RUN:
-			//prog = ofMap(timer, (float)STATUS::FADE_IN, (float)STATUS::RUN, 0.0, 1.0, false);
 			updatePrameter(sin(timer/1000000.0)*0.5 + 0.5);
 			DeepDream.getParameters().getFloat("blend_weight") += attenuation;
-			//DeepDream.setblend(1.0 - attenuation);
 			DeepDream.getParameters().getFloat("blend").set(1.0 - attenuation);
 
 			break;
 
 		case STATUS::FADE_OUT:
 			prog = ofMap(timer, 0.0, (float)demoFadeDulation, 0.0, 1.0, true);
-			//DeepDream.setblend(1.0 - prog);
-			//DeepDream.setblack(ofMap(prog, 0.0, 1.0, 0.0, black, false));
-			DeepDream.getParameters().getFloat("blend").set(1.0 - prog);
-			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, 0.0, black, false));
+			DeepDream.getParameters().getFloat("blend").set(1.0 - prog - attenuation);
+			DeepDream.getParameters().getFloat("black").set(ofMap(prog, 0.0, 1.0, 0.0, BLACK, false));
 
 
 			mySound.setVolume((1.0 - prog));
@@ -595,6 +578,9 @@ void ofApp::drawSequenceInfo() {
 	info += "Velocity:   " + std::to_string(velocityScalar) + "\n";
 	info += "Angular:    " + std::to_string(angularVelocityScalar) + "\n";
 	info += "Volume:   " + std::to_string(mySound.getVolume()) + "\n";
+
+	ofSetColor(0,0,0,128);
+	ofDrawRectangle(0, 0, 640, 360);
 
 
 	if (mode == PLAY_MODE::SEQUENSE) {
