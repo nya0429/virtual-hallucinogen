@@ -23,9 +23,9 @@ public:
 	//static const int fadeoutDulation = 60000;
 	static const int demoFadeDulation = 5000;
 
-	static const int sequenseDulation = 300000;
-	static const int fadeinDulation = 60000;
-	static const int fadeoutDulation = 20000;
+	static const int sequenseDulation = 420000;
+	static const int fadeinDulation = 80000;
+	static const int fadeoutDulation = 30000;
 
 	bool isDebug = true;
 
@@ -120,10 +120,16 @@ private:
 	ofParameter<bool> isRandomDemo;
 	ofParameter<bool> isDrawStereoCamera;
 
+
+	void setDefaultParameters();
+
+
 	ofParameter<int> SequenceMinutes;
 
 	ofxHistoryPlot* plots[10];
-
+	float currentLayer;
+	float currentItr;
+	float currentOctave;
 
 	//float _octave_scale;
 	//float _norm_str;
@@ -131,8 +137,10 @@ private:
 	//float _global_octave_num;
 
 
-	int numSample = 300;
+	int numSample = 1000;
 	void createHistoryPlot(ofxHistoryPlot*&, ofParameter<float>&);
+	void createHistoryPlot(ofxHistoryPlot*&, float&, ofParameter<int>&);
+
 	//int layerlevel;
 	//int octave_num;
 	//int iteration;

@@ -32,9 +32,6 @@ void ofApp::allocateTexture() {
 		f.allocate(s);
 	}
 
-
-
-
 }
 
 void ofApp::setupAudio() {
@@ -45,10 +42,23 @@ void ofApp::setupAudio() {
 }
 
 
-void ofApp::createHistoryPlot(ofxHistoryPlot*& slot,ofParameter<float>& param) {
-	slot = new ofxHistoryPlot(const_cast<float*>(&param.get()), param.getName(), numSample, true);
-	slot->setRange(param.getMin(), param.getMax());
+void ofApp::createHistoryPlot(ofxHistoryPlot*& plot,ofParameter<float>& param) {
+	plot = new ofxHistoryPlot(const_cast<float*>(&param.get()), param.getName(), numSample, true);
+	plot->setRange(param.getMin(), param.getMax());
+	plot->setColor(ofColor(255));
+	plot->setBackgroundColor(ofColor(0, 220)); //custom bg color
+
 }
+
+void ofApp::createHistoryPlot(ofxHistoryPlot*& plot, float& val, ofParameter<int>& param) {
+	plot = new ofxHistoryPlot(&val, param.getName(), numSample, true);
+	plot->setRange(param.getMin(), param.getMax());
+	plot->setColor(ofColor(255));
+	plot->setBackgroundColor(ofColor(0, 220)); //custom bg color
+
+}
+
+
 
 void ofApp::setup() {
 
@@ -134,12 +144,16 @@ void ofApp::setup() {
 		ofLog() << param->getName() << ": " << param->toString();
 	}
 
-	createHistoryPlot(plots[0], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("lr"));
+	createHistoryPlot(plots[0], currentLayer, DeepDream.getDeepDreamGroup().getInt("layerlevel"));
 	createHistoryPlot(plots[1], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("norm_str"));
-	createHistoryPlot(plots[2], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("octave_scale"));
-	createHistoryPlot(plots[3], DeepDream.getParameters().getFloat("blend"));
-	createHistoryPlot(plots[4], DeepDream.getParameters().getFloat("black"));
-	createHistoryPlot(plots[5], DeepDream.getParameters().getFloat("blend_weight"));
+	createHistoryPlot(plots[2], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("lr"));
+	createHistoryPlot(plots[3], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("octave_scale"));
+	createHistoryPlot(plots[4], currentOctave, DeepDream.getDeepDreamGroup().getInt("octave_num"));
+	createHistoryPlot(plots[5], currentItr, DeepDream.getDeepDreamGroup().getInt("iteration"));
+
+	createHistoryPlot(plots[6], DeepDream.getParameters().getFloat("blend_weight"));
+	createHistoryPlot(plots[7], DeepDream.getParameters().getFloat("blend"));
+	createHistoryPlot(plots[8], DeepDream.getParameters().getFloat("black"));
 
 }
 
@@ -262,6 +276,9 @@ void ofApp::update(){
 	
 	}
 
+	currentLayer = float(DeepDream.getDeepDreamGroup().getInt("layerlevel"));
+	currentItr = float(DeepDream.getDeepDreamGroup().getInt("iteration"));
+	currentOctave = float(DeepDream.getDeepDreamGroup().getInt("octave_num"));
 
 }
 
@@ -294,19 +311,9 @@ void ofApp::draw(){
 	drawSequenceInfo();
 	panel.draw();
 
-	//for (int i = 0; i++; i < 6) {
-	//	plots[i]->draw(10, 220 + 30 * i, 480, 30);
-	//}
-
-	//plot->draw(220, 10, 640, 240);
-	plots[0]->draw(10, 10, 480, 40);
-	plots[1]->draw(10, 50, 480, 40);
-	plots[2]->draw(10, 90, 480, 40);
-	plots[3]->draw(10, 130, 480, 40);
-	plots[4]->draw(10, 170, 480, 40);
-	plots[5]->draw(10, 210, 480, 40);
-
-
+	for (int i = 0; i<9; i++) {
+		plots[i]->draw(20 + 240*int(i/6), 300 + 35 * int(i%6), 200, 30);
+	}
 
 }
 void ofApp::drawWorld() {
@@ -587,6 +594,15 @@ void ofApp::updatePrameter(float prog) {
 
 }
 
+void ofApp::setDefaultParameters() {
+	DeepDream.getDeepDreamGroup().getInt("layerlevel").set(DeepDream.getDeepDreamThread().init_layer);
+	DeepDream.getDeepDreamGroup().getInt("iteration").set(DeepDream.getDeepDreamThread().init_itr);
+	DeepDream.getDeepDreamGroup().getInt("octave_num").set(DeepDream.getDeepDreamThread().init_oc_num);
+	DeepDream.getDeepDreamGroup().getFloat("octave_scale").set(DeepDream.getDeepDreamThread().init_oc_scale);
+	DeepDream.getDeepDreamGroup().getFloat("lr").set(DeepDream.getDeepDreamThread().init_lr);
+	DeepDream.getDeepDreamGroup().getFloat("norm_str").set(DeepDream.getDeepDreamThread().init_norm_str);
+}
+
 void ofApp::updateSequence() {
 
 	prog = 0.0;
@@ -602,6 +618,7 @@ void ofApp::updateSequence() {
 
 			case STATUS::START:
 				DeepDream.getParameters().getFloat("blend_weight").set(0.1);
+				setDefaultParameters();
 				state = STATUS::FADE_IN;
 				stateStr = "FADE_IN";
 				ofLogNotice(__FUNCTION__) << "STATUS::FADE_IN";
@@ -666,6 +683,7 @@ void ofApp::updateDemo() {
 
 		case STATUS::START:
 			DeepDream.getParameters().getFloat("blend_weight").set(0.1);
+			setDefaultParameters();
 			state = STATUS::FADE_IN;
 			stateStr = "FADE_IN";
 			ofLogNotice(__FUNCTION__) << "STATUS::FADE_IN";
