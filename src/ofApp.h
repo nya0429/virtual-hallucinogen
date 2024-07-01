@@ -5,6 +5,7 @@
 #include "ofxViveSRWorks.h"
 #include "ofxGui.h"
 #include "ofxDeepDreamThread.h"
+#include "ofxHistoryPlot.h"
 
 class ofApp : public ofBaseApp{
 
@@ -17,11 +18,14 @@ public:
 	void keyPressed(int key);
 
 	//milli sec
-	static const int sequenseDulation = 900000;
-	static const int fadeinDulation = 240000;
-	static const int fadeoutDulation = 60000;
-
+	//static const int sequenseDulation = 900000;
+	//static const int fadeinDulation = 240000;
+	//static const int fadeoutDulation = 60000;
 	static const int demoFadeDulation = 5000;
+
+	static const int sequenseDulation = 300000;
+	static const int fadeinDulation = 60000;
+	static const int fadeoutDulation = 20000;
 
 	bool isDebug = true;
 
@@ -117,5 +121,22 @@ private:
 	ofParameter<bool> isDrawStereoCamera;
 
 	ofParameter<int> SequenceMinutes;
+
+	ofxHistoryPlot* plots[10];
+
+
+	//float _octave_scale;
+	//float _norm_str;
+	//float _num_iterations;
+	//float _global_octave_num;
+
+
+	int numSample = 300;
+	void createHistoryPlot(ofxHistoryPlot*&, ofParameter<float>&);
+	//int layerlevel;
+	//int octave_num;
+	//int iteration;
+
+
 
 };

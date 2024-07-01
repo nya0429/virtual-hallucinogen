@@ -33,6 +33,8 @@ void ofApp::allocateTexture() {
 	}
 
 
+
+
 }
 
 void ofApp::setupAudio() {
@@ -40,6 +42,12 @@ void ofApp::setupAudio() {
 	mySound.load("bi-naural_beats_L380R370_48kHz.wav",false);
 	mySound.setVolume(0);
 
+}
+
+
+void ofApp::createHistoryPlot(ofxHistoryPlot*& slot,ofParameter<float>& param) {
+	slot = new ofxHistoryPlot(const_cast<float*>(&param.get()), param.getName(), numSample, true);
+	slot->setRange(param.getMin(), param.getMax());
 }
 
 void ofApp::setup() {
@@ -119,6 +127,19 @@ void ofApp::setup() {
 	DeepDream.getParameters().getFloat("black").set(BLACK);
 	DeepDream.getParameters().getFloat("blend").set(0);
 	//DeepDream.setblack(black);
+
+
+	//ofLog() << "Parameter Group: " << DeepDream.getParameters().getName();
+	for (const auto& param : DeepDream.getParameters()) {
+		ofLog() << param->getName() << ": " << param->toString();
+	}
+
+	createHistoryPlot(plots[0], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("lr"));
+	createHistoryPlot(plots[1], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("norm_str"));
+	createHistoryPlot(plots[2], DeepDream.getParameters().getGroup("DeepDreamModule").getFloat("octave_scale"));
+	createHistoryPlot(plots[3], DeepDream.getParameters().getFloat("blend"));
+	createHistoryPlot(plots[4], DeepDream.getParameters().getFloat("black"));
+	createHistoryPlot(plots[5], DeepDream.getParameters().getFloat("blend_weight"));
 
 }
 
@@ -241,6 +262,7 @@ void ofApp::update(){
 	
 	}
 
+
 }
 
 
@@ -271,6 +293,21 @@ void ofApp::draw(){
 	}
 	drawSequenceInfo();
 	panel.draw();
+
+	//for (int i = 0; i++; i < 6) {
+	//	plots[i]->draw(10, 220 + 30 * i, 480, 30);
+	//}
+
+	//plot->draw(220, 10, 640, 240);
+	plots[0]->draw(10, 10, 480, 40);
+	plots[1]->draw(10, 50, 480, 40);
+	plots[2]->draw(10, 90, 480, 40);
+	plots[3]->draw(10, 130, 480, 40);
+	plots[4]->draw(10, 170, 480, 40);
+	plots[5]->draw(10, 210, 480, 40);
+
+
+
 }
 void ofApp::drawWorld() {
 
@@ -757,6 +794,10 @@ void ofApp::drawSequenceInfo() {
 	ofDrawBitmapString(info, 20, 20);
 	ofDrawBitmapString(manual, 360, 20);
 	//ofBackground(0,0);
+
+
+
+
 
 }
 
